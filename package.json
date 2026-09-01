@@ -11,7 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "SOLOTODO_LIVE=1 vitest run test/live.test.ts",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "db:migrate": "wrangler d1 execute solotodo-mcp-auth --remote --file=schema.sql",
+    "db:migrate:local": "wrangler d1 execute solotodo-mcp-auth --local --file=schema.sql",
+    "auth:revoke-all": "wrangler d1 execute solotodo-mcp-auth --remote --command=\"DELETE FROM oauth_tokens\""
   },
   "dependencies": {
     "hono": "^4.13.5",

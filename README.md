@@ -1,5 +1,7 @@
 # SoloTodo MCP
 
+**En producción:** `https://solotodo.mmoraga.dev/mcp` — protegido con OAuth 2.1, de un solo usuario.
+
 Servidor [MCP](https://modelcontextprotocol.io) que expone los datos públicos de
 [SoloTodo.cl](https://www.solotodo.cl) —precios, specs, historial y evaluaciones— como
 herramientas para agentes de IA.
@@ -56,28 +58,74 @@ npm run deploy     # despliegue a Cloudflare Workers
 ### Conectarlo a un cliente MCP
 
 ```bash
-# Claude Code, contra el servidor local
-claude mcp add --transport http solotodo http://localhost:8787/mcp
+claude mcp add --transport http solotodo https://solotodo.mmoraga.dev/mcp
 ```
 
-O en la configuración de un cliente que use JSON:
-
-```json
-{
-  "mcpServers": {
-    "solotodo": { "type": "http", "url": "http://localhost:8787/mcp" }
-  }
-}
-```
+Luego, dentro de Claude Code, `/mcp` para iniciar el login: se abre el navegador, pide la
+clave maestra y el cliente guarda el token. Se hace una sola vez; después el refresh token
+renueva el acceso solo.
 
 El transporte es **streamable HTTP** en modo stateless: cada `POST /mcp` es autocontenido,
 no hay sesión ni SSE, y por lo tanto no se necesitan Durable Objects.
 
+---
+
+## Autorización
+
+El servidor es **de un solo usuario**: no hay registro ni tabla de usuarios. Tu identidad la
+prueba una clave maestra guardada como secreto del Worker.
+
+Implementa lo que la especificación MCP exige del lado del servidor:
+
+| Pieza | Estándar | Endpoint |
+|---|---|---|
+| Metadata del recurso protegido | RFC 9728 | `/.well-known/oauth-protected-resource` |
+| Metadata del servidor de autorización | RFC 8414 | `/.well-known/oauth-authorization-server` |
+| Registro dinámico de clientes | RFC 7591 | `POST /oauth/register` |
+| Autorización con consentimiento | OAuth 2.1 | `GET/POST /oauth/authorize` |
+| Emisión y refresco de tokens | OAuth 2.1 | `POST /oauth/token` |
+| Revocación | RFC 7009 | `POST /oauth/revoke` |
+
+El cliente no necesita configuración: pega la URL, recibe un `401` con `WWW-Authenticate`,
+descubre el resto solo y arranca el flujo.
+
+### Decisiones de seguridad
+
+- **PKCE con S256 obligatorio.** Sin `code_challenge` el `/authorize` responde 400, y `plain`
+  se rechaza. Los clientes son públicos, sin secreto compartido: la seguridad la aporta PKCE.
+- **Nada se guarda en claro.** Códigos y tokens se almacenan como SHA-256, así que una
+  filtración de la base no permite suplantar a nadie.
+- **Códigos de un solo uso.** El canje marca el código como consumido con un `UPDATE`
+  condicional; si dos canjes llegan a la vez, el segundo no afecta filas y se rechaza.
+- **Sin open redirect.** La `redirect_uri` debe coincidir exactamente con una registrada; si
+  no, se muestra un error en vez de redirigir. En el registro solo se aceptan HTTPS o `localhost`.
+- **Tokens ligados a este recurso** (RFC 8707). Un token emitido para otro servidor MCP se
+  rechaza con 403, que es la defensa contra *confused deputy*.
+- **Rotación de refresh tokens.** Cada uso invalida el anterior.
+- **Bloqueo por fuerza bruta.** Cinco claves erradas desde una IP la bloquean 15 minutos.
+- **Pantalla de consentimiento explícita.** Siempre muestra qué aplicación pide acceso y a qué
+  URL va a redirigir. Es la contramedida práctica al punto débil del registro dinámico:
+  cualquiera puede registrar un cliente, así que la última verificación la haces tú antes de
+  escribir la clave.
+
+Vida útil: access token 1 hora, refresh token 30 días.
+
+### Operación
+
+```bash
+npx wrangler secret put MCP_AUTH_PASSWORD   # cambiar la clave maestra
+npm run auth:revoke-all                     # botón de pánico: invalida todos los tokens
+npm run db:migrate                          # aplicar el esquema (primera vez o tras cambiarlo)
+```
+
+Tras revocar o cambiar la clave, cada cliente vuelve a pedir login.
+
 ### Ejemplo de llamada directa
 
 ```bash
-curl -s http://localhost:8787/mcp \
+curl -s https://solotodo.mmoraga.dev/mcp \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <token>' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
         "name":"buscar_productos",
         "arguments":{"categoria":"notebooks","precio_max_clp":1000000,
@@ -100,6 +148,11 @@ src/
 │   ├── categories.ts     Resolución difusa de categorías
 │   ├── filters.ts        Traducción specs humanas → query params
 │   └── types.ts
+├── auth/
+│   ├── oauth.ts          Servidor de autorización OAuth 2.1
+│   ├── store.ts          Estado en D1 (clientes, códigos, tokens)
+│   ├── crypto.ts         Tokens aleatorios, SHA-256, PKCE
+│   └── login-page.ts     Pantalla de consentimiento
 ├── tools/                Una herramienta MCP por archivo
 └── lib/
     ├── price-analysis.ts Estadísticas de historial y ofertas infladas
@@ -156,6 +209,7 @@ Dos capas, para golpear lo menos posible una API de terceros:
 | `SOLOTODO_API_BASE` | `https://publicapi.solotodo.com` | Base de la API upstream. |
 | `SOLOTODO_CACHE_TTL` | `900` | TTL de caché en segundos. `0` la desactiva. |
 | `SOLOTODO_TIMEOUT_MS` | `20000` | Timeout por request upstream. |
+| `MCP_AUTH_PASSWORD` | — | **Secreto.** Clave maestra del login OAuth. Sin ella `/oauth/authorize` responde 500. |
 
 Se definen en `wrangler.jsonc`; para desarrollo local se pueden sobrescribir copiando
 `.dev.vars.example` a `.dev.vars`.
@@ -164,8 +218,8 @@ Se definen en `wrangler.jsonc`; para desarrollo local se pueden sobrescribir cop
 
 ## Estado
 
-**Fase 1 (MVP) — completa.** Las siete herramientas funcionan contra la API real.
-Se ejecuta en local con `npm run dev`; todavía no está desplegado.
+**Fase 1 (MVP) — completa y desplegada** en `https://solotodo.mmoraga.dev/mcp`, con
+autorización OAuth 2.1 de un solo usuario.
 
 **Fase 2 — pendiente.** Vigilancia de precios con estado: tabla D1 de productos vigilados,
 herramientas `vigilar_producto` / `dejar_de_vigilar` / `listar_vigilados`, y un Cron Trigger
@@ -173,7 +227,9 @@ que compare precios y dispare alertas. Los bindings están comentados en `wrangl
 Queda por decidir el canal de notificación (Telegram / email / otro).
 
 **Fase 3 — pendiente.** Publicación open source bajo Root SpA, elección de licencia,
-rate limiting propio y evaluación de una versión hosted en RapidAPI.
+rate limiting propio y evaluación de una versión hosted en RapidAPI. Si alguna vez se
+abre a varios usuarios, la clave maestra única deja de servir: habría que agregar
+usuarios reales y `scopes` por cliente.
 
 ### Riesgo a vigilar
 

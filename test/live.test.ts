@@ -7,20 +7,23 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import app from '../src/index.js';
+import { makeTestEnv } from './fake-d1.js';
+import { completeFlow, ORIGIN } from './oauth-helper.js';
 
-const ENV = {
-  SOLOTODO_API_BASE: 'https://publicapi.solotodo.com',
-  SOLOTODO_CACHE_TTL: '0',
-  SOLOTODO_TIMEOUT_MS: '30000',
-} as unknown as Env;
+const { env: ENV } = makeTestEnv({ SOLOTODO_TIMEOUT_MS: '30000' });
 
 let callId = 0;
+let token = '';
+
+beforeAll(async () => {
+  token = (await completeFlow(ENV)).accessToken;
+});
 
 async function callTool(name: string, args: Record<string, unknown>): Promise<{ text: string; isError: boolean }> {
   const response = await app.fetch(
-    new Request('https://solotodo-mcp.test/mcp', {
+    new Request(`${ORIGIN}/mcp`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ jsonrpc: '2.0', id: ++callId, method: 'tools/call', params: { name, arguments: args } }),
     }),
     ENV,
@@ -130,10 +133,6 @@ describe('integración con la API real de SoloTodo', () => {
 });
 
 describe('contrato de la API upstream', () => {
-  beforeAll(() => {
-    expect(ENV.SOLOTODO_API_BASE).toBe('https://publicapi.solotodo.com');
-  });
-
   it('los filtros de rango siguen exigiendo el id del choice y no el valor', async () => {
     // Si esto empieza a pasar, la API cambió y `resolveSpecs` se puede simplificar.
     const response = await fetch('https://publicapi.solotodo.com/categories/1/browse/?page_size=1&ram_quantity_min=16');

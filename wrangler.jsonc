@@ -5,10 +5,14 @@
   "compatibility_date": "2026-09-01",
   "observability": { "enabled": true },
 
-  // Sin despliegue: el servidor se usa en local con `npm run dev`.
-  // Para publicarlo, agregar el dominio propio y volver a desplegar:
-  //   "routes": [{ "pattern": "<subdominio>", "custom_domain": true }],
+  // Dominio propio. Cloudflare crea y mantiene el registro DNS automáticamente.
   // Ojo: definir `routes` deshabilita la URL *.workers.dev por defecto.
+  "routes": [{ "pattern": "solotodo.mmoraga.dev", "custom_domain": true }],
+
+  // Estado de autorización OAuth (clientes, códigos y tokens).
+  "d1_databases": [
+    { "binding": "DB", "database_name": "solotodo-mcp-auth", "database_id": "34c04a20-1c82-471d-8d34-c77ae12bfe5f" }
+  ],
 
   "vars": {
     "SOLOTODO_API_BASE": "https://publicapi.solotodo.com",

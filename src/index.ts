@@ -12,6 +12,7 @@ import { McpServer } from './mcp/server.js';
 import { RPC_PARSE_ERROR, type JsonRpcResponse } from './mcp/types.js';
 import { SolotodoClient } from './solotodo/client.js';
 import { TOOLS } from './tools/index.js';
+import { authenticate, oauthRoutes, wwwAuthenticateHeader } from './auth/oauth.js';
 
 const SERVER_NAME = 'solotodo-mcp';
 const SERVER_VERSION = '0.1.0';
@@ -47,12 +48,39 @@ app.use(
   }),
 );
 
+// Endpoints de descubrimiento OAuth y del servidor de autorización.
+// Van antes que /mcp para que el 401 pueda apuntar a metadata que sí es pública.
+app.route('/', oauthRoutes);
+
+/**
+ * Todo POST a /mcp exige un Bearer válido. El 401 incluye `WWW-Authenticate` con
+ * la URL de la metadata, que es la pista con la que el cliente MCP arranca solo
+ * el flujo de autorización.
+ */
+app.use('/mcp', async (c, next) => {
+  if (c.req.method === 'OPTIONS') return next();
+
+  const result = await authenticate(c.req.raw, c.env);
+  if (result.ok) return next();
+
+  return c.json(
+    { error: result.error, error_description: result.description },
+    result.status ?? 401,
+    { 'WWW-Authenticate': wwwAuthenticateHeader(c.req.raw, result.error, result.description) },
+  );
+});
+
 app.get('/', (c) =>
   c.json({
     name: SERVER_NAME,
     version: SERVER_VERSION,
     description: 'Servidor MCP de SoloTodo.cl: búsqueda de productos, precios, historial y evaluaciones.',
     transport: { type: 'streamable-http', endpoint: '/mcp' },
+    authorization: {
+      type: 'oauth2',
+      metadata: '/.well-known/oauth-protected-resource',
+      note: 'POST /mcp requiere un token Bearer emitido por este servidor.',
+    },
     tools: TOOLS.map((tool) => tool.name),
     source: 'https://publicapi.solotodo.com',
   }),

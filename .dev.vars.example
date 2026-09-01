@@ -1,5 +1,11 @@
 # Copiar a .dev.vars para desarrollo local (wrangler dev).
-# Todas las variables tienen default en wrangler.jsonc; esto es solo para overrides.
+# .dev.vars está en .gitignore: nunca subas la clave real al repo.
+
+# Clave maestra del login OAuth. Obligatoria: sin ella /oauth/authorize responde 500.
+# En producción se define con:  npx wrangler secret put MCP_AUTH_PASSWORD
+MCP_AUTH_PASSWORD=clave-solo-para-desarrollo-local
+
+# Overrides opcionales; todos tienen default en wrangler.jsonc.
 # SOLOTODO_API_BASE=https://publicapi.solotodo.com
 # SOLOTODO_CACHE_TTL=900
 # SOLOTODO_TIMEOUT_MS=20000

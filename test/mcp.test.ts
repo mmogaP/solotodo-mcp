@@ -1,18 +1,23 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import app from '../src/index.js';
 import { TOOLS } from '../src/tools/index.js';
+import { makeTestEnv } from './fake-d1.js';
+import { completeFlow, ORIGIN } from './oauth-helper.js';
 
-const ENV = {
-  SOLOTODO_API_BASE: 'https://publicapi.solotodo.com',
-  SOLOTODO_CACHE_TTL: '0',
-  SOLOTODO_TIMEOUT_MS: '20000',
-} as unknown as Env;
+// /mcp exige OAuth, así que estas pruebas corren con un token real obtenido
+// mediante el flujo completo. La autorización en sí se cubre en oauth.test.ts.
+const { env: ENV } = makeTestEnv();
+let TOKEN = '';
+
+beforeAll(async () => {
+  TOKEN = (await completeFlow(ENV)).accessToken;
+});
 
 async function rpc(body: unknown): Promise<{ status: number; json: any }> {
   const response = await app.fetch(
-    new Request('https://solotodo-mcp.test/mcp', {
+    new Request(`${ORIGIN}/mcp`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
       body: JSON.stringify(body),
     }),
     ENV,
@@ -97,9 +102,9 @@ describe('transporte MCP', () => {
 
   it('devuelve parse error ante un cuerpo no JSON', async () => {
     const response = await app.fetch(
-      new Request('https://solotodo-mcp.test/mcp', {
+      new Request(`${ORIGIN}/mcp`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
         body: 'no soy json',
       }),
       ENV,
@@ -134,26 +139,34 @@ describe('transporte MCP', () => {
 
 describe('endpoints HTTP', () => {
   it('/health responde ok', async () => {
-    const response = await app.fetch(new Request('https://solotodo-mcp.test/health'), ENV);
+    const response = await app.fetch(new Request(`${ORIGIN}/health`), ENV);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ status: 'ok', server: 'solotodo-mcp' });
   });
 
   it('/ describe el transporte y las herramientas', async () => {
-    const response = await app.fetch(new Request('https://solotodo-mcp.test/'), ENV);
+    const response = await app.fetch(new Request(`${ORIGIN}/`), ENV);
     const body = await response.json<{ transport: { endpoint: string }; tools: string[] }>();
     expect(body.transport.endpoint).toBe('/mcp');
     expect(body.tools).toContain('historial_precio');
   });
 
-  it('GET /mcp responde 405 porque el servidor es stateless', async () => {
-    const response = await app.fetch(new Request('https://solotodo-mcp.test/mcp'), ENV);
+  it('GET /mcp exige token igual que POST', async () => {
+    const response = await app.fetch(new Request(`${ORIGIN}/mcp`), ENV);
+    expect(response.status).toBe(401);
+  });
+
+  it('GET /mcp autenticado responde 405 porque el servidor es stateless', async () => {
+    const response = await app.fetch(
+      new Request(`${ORIGIN}/mcp`, { headers: { Authorization: `Bearer ${TOKEN}` } }),
+      ENV,
+    );
     expect(response.status).toBe(405);
   });
 
   it('responde el preflight CORS', async () => {
     const response = await app.fetch(
-      new Request('https://solotodo-mcp.test/mcp', {
+      new Request(`${ORIGIN}/mcp`, {
         method: 'OPTIONS',
         headers: { Origin: 'https://claude.ai', 'Access-Control-Request-Method': 'POST' },
       }),
