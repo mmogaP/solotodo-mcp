@@ -1,0 +1,26 @@
+{
+  "name": "solotodo-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Servidor MCP que expone los datos de SoloTodo.cl (precios, specs, historial y comentarios) como herramientas para agentes de IA.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:live": "SOLOTODO_LIVE=1 vitest run test/live.test.ts",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.13.5",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "typescript": "^5.9.0",
+    "vitest": "~3.2.0",
+    "wrangler": "^4.128.0"
+  }
+}

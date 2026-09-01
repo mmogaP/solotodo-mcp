@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "solotodo-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": { "enabled": true },
+  "vars": {
+    "SOLOTODO_API_BASE": "https://publicapi.solotodo.com",
+    // TTL de caché (segundos) para respuestas de la API de SoloTodo.
+    "SOLOTODO_CACHE_TTL": "900",
+    // Timeout por request a la API upstream (ms).
+    "SOLOTODO_TIMEOUT_MS": "20000"
+  }
+
+  // --- Fase 2 (estado + alertas): descomentar cuando se implemente ---
+  // "d1_databases": [
+  //   { "binding": "DB", "database_name": "solotodo-mcp", "database_id": "<pendiente>" }
+  // ],
+  // "triggers": { "crons": ["0 */6 * * *"] }
+}

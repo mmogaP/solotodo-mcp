@@ -1,0 +1,5 @@
+# Copiar a .dev.vars para desarrollo local (wrangler dev).
+# Todas las variables tienen default en wrangler.jsonc; esto es solo para overrides.
+# SOLOTODO_API_BASE=https://publicapi.solotodo.com
+# SOLOTODO_CACHE_TTL=900
+# SOLOTODO_TIMEOUT_MS=20000
