@@ -1,5 +1,7 @@
 # SoloTodo MCP
 
+**En producción:** `https://solotodo.mmoraga.dev/mcp`
+
 Servidor [MCP](https://modelcontextprotocol.io) que expone los datos públicos de
 [SoloTodo.cl](https://www.solotodo.cl) —precios, specs, historial y evaluaciones— como
 herramientas para agentes de IA.
@@ -56,8 +58,11 @@ npm run deploy     # despliegue a Cloudflare Workers
 ### Conectarlo a un cliente MCP
 
 ```bash
-# Claude Code, contra el servidor local
-claude mcp add --transport http solotodo http://localhost:8787/mcp
+# Claude Code, contra el servidor en producción
+claude mcp add --transport http solotodo https://solotodo.mmoraga.dev/mcp
+
+# ...o contra el servidor local durante desarrollo
+claude mcp add --transport http solotodo-dev http://localhost:8787/mcp
 ```
 
 O en la configuración de un cliente que use JSON:
@@ -65,7 +70,7 @@ O en la configuración de un cliente que use JSON:
 ```json
 {
   "mcpServers": {
-    "solotodo": { "type": "http", "url": "https://<tu-subdominio>/mcp" }
+    "solotodo": { "type": "http", "url": "https://solotodo.mmoraga.dev/mcp" }
   }
 }
 ```
@@ -76,7 +81,7 @@ no hay sesión ni SSE, y por lo tanto no se necesitan Durable Objects.
 ### Ejemplo de llamada directa
 
 ```bash
-curl -s http://localhost:8787/mcp \
+curl -s https://solotodo.mmoraga.dev/mcp \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{
         "name":"buscar_productos",
@@ -164,7 +169,8 @@ Se definen en `wrangler.jsonc`; para desarrollo local se pueden sobrescribir cop
 
 ## Estado
 
-**Fase 1 (MVP) — completa.** Las siete herramientas funcionan contra la API real.
+**Fase 1 (MVP) — completa y desplegada** en `https://solotodo.mmoraga.dev/mcp`
+(Cloudflare Workers). Las siete herramientas funcionan contra la API real.
 
 **Fase 2 — pendiente.** Vigilancia de precios con estado: tabla D1 de productos vigilados,
 herramientas `vigilar_producto` / `dejar_de_vigilar` / `listar_vigilados`, y un Cron Trigger

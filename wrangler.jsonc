@@ -4,6 +4,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "observability": { "enabled": true },
+
+  // Dominio propio. Cloudflare crea y mantiene el registro DNS automáticamente.
+  "routes": [{ "pattern": "solotodo.mmoraga.dev", "custom_domain": true }],
+
   "vars": {
     "SOLOTODO_API_BASE": "https://publicapi.solotodo.com",
     // TTL de caché (segundos) para respuestas de la API de SoloTodo.
