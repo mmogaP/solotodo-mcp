@@ -5,8 +5,10 @@
   "compatibility_date": "2026-09-01",
   "observability": { "enabled": true },
 
-  // Dominio propio. Cloudflare crea y mantiene el registro DNS automáticamente.
-  "routes": [{ "pattern": "solotodo.mmoraga.dev", "custom_domain": true }],
+  // Sin despliegue: el servidor se usa en local con `npm run dev`.
+  // Para publicarlo, agregar el dominio propio y volver a desplegar:
+  //   "routes": [{ "pattern": "<subdominio>", "custom_domain": true }],
+  // Ojo: definir `routes` deshabilita la URL *.workers.dev por defecto.
 
   "vars": {
     "SOLOTODO_API_BASE": "https://publicapi.solotodo.com",
