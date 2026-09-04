@@ -37,16 +37,26 @@ const server = new McpServer(
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use(
-  '/mcp',
-  cors({
-    origin: '*',
-    allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Accept', 'Mcp-Session-Id', 'MCP-Protocol-Version', 'Authorization'],
-    exposeHeaders: ['Mcp-Session-Id'],
-    maxAge: 86400,
-  }),
-);
+const mcpCors = cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Accept', 'Mcp-Session-Id', 'MCP-Protocol-Version', 'Authorization'],
+  exposeHeaders: ['Mcp-Session-Id', 'WWW-Authenticate'],
+  maxAge: 86400,
+});
+
+app.use('/mcp', mcpCors);
+
+/**
+ * Los endpoints de descubrimiento y de token también necesitan CORS: algunos
+ * clientes (claude.ai entre ellos) resuelven la metadata desde el navegador, y sin
+ * estas cabeceras el flujo falla en silencio antes de llegar al login.
+ *
+ * Abrirlos no debilita nada: la metadata es pública por diseño y el canje de token
+ * exige el código más el `code_verifier` de PKCE, que el navegador ajeno no tiene.
+ */
+app.use('/.well-known/*', mcpCors);
+app.use('/oauth/*', mcpCors);
 
 // Endpoints de descubrimiento OAuth y del servidor de autorización.
 // Van antes que /mcp para que el 401 pueda apuntar a metadata que sí es pública.

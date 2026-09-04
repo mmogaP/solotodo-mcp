@@ -290,3 +290,45 @@ describe('protección de /mcp', () => {
     expect((await get('/.well-known/oauth-protected-resource')).status).toBe(200);
   });
 });
+
+describe('compatibilidad con clientes de navegador (claude.ai)', () => {
+  const withOrigin = (path: string) => get(path, { headers: { Origin: 'https://claude.ai' } });
+
+  it('los endpoints de descubrimiento responden con CORS', async () => {
+    for (const path of ['/.well-known/oauth-protected-resource', '/.well-known/oauth-authorization-server']) {
+      const response = await withOrigin(path);
+      expect(response.headers.get('Access-Control-Allow-Origin'), path).toBe('*');
+    }
+  });
+
+  it('el preflight de /oauth/token y /oauth/register pasa', async () => {
+    for (const path of ['/oauth/token', '/oauth/register']) {
+      const response = await get(path, {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://claude.ai', 'Access-Control-Request-Method': 'POST' },
+      });
+      expect(response.headers.get('Access-Control-Allow-Origin'), path).toBe('*');
+    }
+  });
+
+  it('expone WWW-Authenticate al navegador para que pueda arrancar el flujo', async () => {
+    const response = await get('/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'https://claude.ai' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+    });
+    expect(response.status).toBe(401);
+    expect(response.headers.get('Access-Control-Expose-Headers')).toContain('WWW-Authenticate');
+  });
+
+  it('acepta el redirect_uri de claude.ai en el registro dinámico', async () => {
+    const response = await get('/oauth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirect_uris: ['https://claude.ai/api/mcp/auth_callback'] }),
+    });
+    expect(response.status).toBe(201);
+    // Sin client_name, se usa un nombre por defecto en vez de fallar.
+    expect((await response.json<any>()).client_name).toBeTruthy();
+  });
+});

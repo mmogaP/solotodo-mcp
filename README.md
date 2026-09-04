@@ -65,6 +65,11 @@ Luego, dentro de Claude Code, `/mcp` para iniciar el login: se abre el navegador
 clave maestra y el cliente guarda el token. Se hace una sola vez; después el refresh token
 renueva el acceso solo.
 
+En **claude.ai** se agrega como conector personalizado (Configuración → Conectores →
+Agregar conector personalizado) pegando la misma URL. El descubrimiento OAuth y el
+registro dinámico hacen el resto; solo tienes que escribir la clave maestra cuando
+aparezca la pantalla de consentimiento.
+
 El transporte es **streamable HTTP** en modo stateless: cada `POST /mcp` es autocontenido,
 no hay sesión ni SSE, y por lo tanto no se necesitan Durable Objects.
 
