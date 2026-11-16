@@ -1,7 +1,5 @@
 # SoloTodo MCP
 
-**En producción:** `https://solotodo.mmoraga.dev/mcp` — protegido con OAuth 2.1, de un solo usuario.
-
 Servidor [MCP](https://modelcontextprotocol.io) que expone los datos públicos de
 [SoloTodo.cl](https://www.solotodo.cl) —precios, specs, historial y evaluaciones— como
 herramientas para agentes de IA.
